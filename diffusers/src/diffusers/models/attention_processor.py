@@ -1094,25 +1094,25 @@ class JointAttnProcessor2_0:
 
         if hasattr(self, "attn_cache") and self.attn_cache is not None:
             if encoder_hidden_states is not None:
-                #import pdb; pdb.set_trace()
+                n_img = residual.shape[1]
                 attn_scores = (query @ key.transpose(-1, -2) / math.sqrt(head_dim))
                 if self.softmax_i2t_only:
-                    attn_scores[:, :, :4096, 4096:4096+77] = attn_scores[:, :, :4096, 4096:4096+77].softmax(dim=-1)
+                    attn_scores[:, :, :n_img, n_img:] = attn_scores[:, :, :n_img, n_img:].softmax(dim=-1)
                 elif self.softmax:
                     attn_scores = attn_scores.softmax(dim=-1)
 
                 if self.keep_head or self.head is not None:
                     assert not self.max_head, "If keep_head is True, max_head must be False."
-                    self.attn_cache = attn_scores[:, :, :4096, 4096:4096+77]
+                    self.attn_cache = attn_scores[:, :, :n_img, n_img:]
                     
                     if self.head is not None:
                         self.attn_cache = self.attn_cache[:, self.head]
                 else:
-                    self.attn_cache = attn_scores.mean(dim=1)[:, :4096, 4096:4096+77]
+                    self.attn_cache = attn_scores.mean(dim=1)[:, :n_img, n_img:]
                 
                 if self.max_head:
                     assert self.softmax_i2t_only or self.softmax, "If max_head is True, softmax_i2t_only or softmax must be True."
-                    self.attn_cache = attn_scores[:, :, :4096, 4096:4096+77].max(dim=1)[0]
+                    self.attn_cache = attn_scores[:, :, :n_img, n_img:].max(dim=1)[0]
 
         hidden_states = F.scaled_dot_product_attention(query, key, value, dropout_p=0.0, is_causal=False)
         hidden_states = hidden_states.transpose(1, 2).reshape(batch_size, -1, attn.heads * head_dim)
