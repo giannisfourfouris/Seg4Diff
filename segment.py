@@ -484,11 +484,15 @@ def save_visualization(image_pil, masks, class_names, save_dir):
     overlay_a = overlay_rgba[..., 3:4].astype(np.float32) / 255.0
     blended = (img_np.astype(np.float32) * (1 - overlay_a) + overlay_rgb * overlay_a).astype(np.uint8)
 
+    seg_color_512 = np.zeros((512, 512, 3), dtype=np.uint8)
+    for idx in np.unique(argmax_512):
+        seg_color_512[argmax_512 == idx] = (np.array(COLORMAP(idx % 20)[:3]) * 255).astype(np.uint8)
+
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     axes[0].imshow(img_np)
     axes[0].set_title("Original")
     axes[0].axis("off")
-    axes[1].imshow(argmax_512, cmap="tab20")
+    axes[1].imshow(seg_color_512)
     axes[1].set_title("Segmentation Map")
     axes[1].axis("off")
     axes[2].imshow(blended)
@@ -519,10 +523,17 @@ def save_comparison(image_pil, base_argmax, lora_argmax, base_blend, lora_blend,
     fig, axes = plt.subplots(2, 3, figsize=(20, 13))
     img_np = np.array(image_pil.resize((512, 512)))
 
+    def _argmax_to_rgb(argmax_map):
+        h, w = argmax_map.shape
+        rgb = np.zeros((h, w, 3), dtype=np.uint8)
+        for idx in np.unique(argmax_map):
+            rgb[argmax_map == idx] = (np.array(COLORMAP(idx % 20)[:3]) * 255).astype(np.uint8)
+        return rgb
+
     axes[0, 0].imshow(img_np)
     axes[0, 0].set_title("Original Image")
     axes[0, 0].axis("off")
-    axes[0, 1].imshow(base_argmax, cmap="tab20")
+    axes[0, 1].imshow(_argmax_to_rgb(base_argmax))
     axes[0, 1].set_title("Base - Segmentation")
     axes[0, 1].axis("off")
     axes[0, 2].imshow(base_blend)
@@ -532,7 +543,7 @@ def save_comparison(image_pil, base_argmax, lora_argmax, base_blend, lora_blend,
     axes[1, 0].imshow(img_np)
     axes[1, 0].set_title("Original Image")
     axes[1, 0].axis("off")
-    axes[1, 1].imshow(lora_argmax, cmap="tab20")
+    axes[1, 1].imshow(_argmax_to_rgb(lora_argmax))
     axes[1, 1].set_title("LoRA - Segmentation")
     axes[1, 1].axis("off")
     axes[1, 2].imshow(lora_blend)
