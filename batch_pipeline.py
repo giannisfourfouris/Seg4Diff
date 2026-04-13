@@ -60,6 +60,7 @@ from segment import (
     colorize_segmentation,
     load_pipeline,
     segment_ovss,
+    segment_unsupervised,
     setup_attention_caching,
 )
 
@@ -347,15 +348,28 @@ def main():
         img_tensor = pil_to_tensor(gen_img, args.resolution, args.device)
         with torch.amp.autocast(args.device.split(":")[0],
                                 dtype=torch.float16 if args.fp16 else torch.float32):
-            masks = segment_ovss(
-                pipe, img_tensor, classes,
-                noise_steps=args.noise_steps,
-                num_inference_steps=args.num_inference_steps,
-                attn_size=attn_size,
-                norm_before_merge=args.norm_before_merge,
-                norm_after_merge=args.norm_after_merge,
-                seed=args.seed,
-            )
+            if classes:
+                masks = segment_ovss(
+                    pipe, img_tensor, classes,
+                    noise_steps=args.noise_steps,
+                    num_inference_steps=args.num_inference_steps,
+                    attn_size=attn_size,
+                    norm_before_merge=args.norm_before_merge,
+                    norm_after_merge=args.norm_after_merge,
+                    seed=args.seed,
+                )
+            else:
+                masks = segment_unsupervised(
+                    pipe, img_tensor,
+                    noise_steps=args.noise_steps,
+                    num_inference_steps=args.num_inference_steps,
+                    attn_size=attn_size,
+                    kl_threshold=args.kl_threshold,
+                    output_power=args.output_power,
+                    seed=args.seed,
+                )
+                classes = [f"segment_{i}" for i in range(masks.shape[0])]
+                entry["classes"] = classes
 
         save_segmentation(gen_img, masks, classes, out_dir)
         elapsed = time.time() - t0
@@ -410,15 +424,27 @@ def main():
             img_tensor = pil_to_tensor(gen_img, args.resolution, args.device)
             with torch.amp.autocast(args.device.split(":")[0],
                                     dtype=torch.float16 if args.fp16 else torch.float32):
-                masks = segment_ovss(
-                    pipe, img_tensor, classes,
-                    noise_steps=args.noise_steps,
-                    num_inference_steps=args.num_inference_steps,
-                    attn_size=attn_size,
-                    norm_before_merge=args.norm_before_merge,
-                    norm_after_merge=args.norm_after_merge,
-                    seed=args.seed,
-                )
+                if classes:
+                    masks = segment_ovss(
+                        pipe, img_tensor, classes,
+                        noise_steps=args.noise_steps,
+                        num_inference_steps=args.num_inference_steps,
+                        attn_size=attn_size,
+                        norm_before_merge=args.norm_before_merge,
+                        norm_after_merge=args.norm_after_merge,
+                        seed=args.seed,
+                    )
+                else:
+                    masks = segment_unsupervised(
+                        pipe, img_tensor,
+                        noise_steps=args.noise_steps,
+                        num_inference_steps=args.num_inference_steps,
+                        attn_size=attn_size,
+                        kl_threshold=args.kl_threshold,
+                        output_power=args.output_power,
+                        seed=args.seed,
+                    )
+                    classes = [f"segment_{i}" for i in range(masks.shape[0])]
 
             lora_argmax, lora_blend = save_segmentation(gen_img, masks, classes, out_dir)
 
