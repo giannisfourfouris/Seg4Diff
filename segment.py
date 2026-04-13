@@ -518,7 +518,7 @@ def save_visualization(image_pil, masks, class_names, save_dir):
 
 
 def save_comparison(image_pil, base_argmax, lora_argmax, base_blend, lora_blend,
-                    class_names, save_path):
+                    class_names, save_path, caption=None):
     """Side-by-side comparison of base vs LoRA segmentation."""
     fig, axes = plt.subplots(2, 3, figsize=(20, 13))
     img_np = np.array(image_pil.resize((512, 512)))
@@ -560,7 +560,10 @@ def save_comparison(image_pil, base_argmax, lora_argmax, base_blend, lora_blend,
         ]
         fig.legend(handles=patches, loc="lower center", ncol=min(len(patches), 8), fontsize=10)
 
-    plt.tight_layout(rect=[0, 0.04, 1, 1])
+    if caption:
+        fig.suptitle(caption, fontsize=20, fontweight="bold", y=1.02)
+
+    plt.tight_layout(rect=[0, 0.04, 1, 0.97 if caption else 1])
     fig.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"  Saved comparison to {save_path}")
@@ -696,9 +699,14 @@ def main():
 
             image_pil = Image.open(img_path).convert("RGB")
             base_masks, base_argmax, base_blend, _ = base_results[img_path]
+
+            prompt_slug = Path(img_path).parent.parent.name if Path(img_path).parent.name in ("base", "lora") else Path(img_path).stem
+            caption = prompt_slug.replace("_", " ")
+
             save_comparison(
                 image_pil, base_argmax, lora_argmax, base_blend, lora_blend,
-                cnames, root / out_name / "comparison.png"
+                cnames, root / out_name / "comparison.png",
+                caption=caption,
             )
 
     # --- Summary ---
