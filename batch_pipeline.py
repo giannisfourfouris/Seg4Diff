@@ -45,7 +45,6 @@ import argparse
 import json
 import time
 from pathlib import Path
-
 import cv2
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
