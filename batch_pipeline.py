@@ -59,6 +59,7 @@ from segment import (
     apply_lora,
     colorize_segmentation,
     load_pipeline,
+    map_to_coco_ids,
     segment_ovss,
     segment_unsupervised,
     setup_attention_caching,
@@ -200,6 +201,10 @@ def save_segmentation(image_pil, masks, class_names, save_dir):
     # Raw class-index argmax (values 0, 1, 2, ...)
     Image.fromarray(argmax_full, mode="L").save(save_dir / "argmax.png")
 
+    # RNS-compatible mask with fixed COCO class IDs
+    coco_mask = map_to_coco_ids(argmax_full, class_names)
+    Image.fromarray(coco_mask, mode="L").save(save_dir / "argmax_rns.png")
+
     # Color-coded argmax
     color_mask = np.zeros((orig_h, orig_w, 3), dtype=np.uint8)
     for idx in np.unique(argmax_full):
@@ -293,7 +298,7 @@ def main():
         img_id = Path(entry["image"]).stem
         caption = entry["captions"][args.caption_index]
         classes = entry["classes"]
-        if len(classes) == 1:
+        if "background" not in [c.lower() for c in classes]:
             classes = classes + ["background"]
         entries.append({"id": img_id, "caption": caption, "classes": classes})
 
