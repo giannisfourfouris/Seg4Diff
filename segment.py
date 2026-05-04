@@ -59,80 +59,6 @@ from peft import LoraConfig, set_peft_model_state_dict
 
 
 # ---------------------------------------------------------------------------
-# Fixed COCO class-to-ID mapping (background=0, 80 COCO object classes=1..80)
-# Ensures consistent pixel values across all images for RNS compatibility
-# ---------------------------------------------------------------------------
-
-COCO_CLASSES = (
-    'background', 'person', 'bicycle', 'car', 'motorcycle', 'aeroplane',
-    'bus', 'train', 'truck', 'boat', 'traffic light', 'fire hydrant',
-    'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse',
-    'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe', 'backpack',
-    'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis',
-    'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove',
-    'skateboard', 'surfboard', 'tennis racket', 'bottle', 'wine glass',
-    'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
-    'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
-    'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed',
-    'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote',
-    'keyboard', 'cell phone', 'microwave', 'oven', 'toaster', 'sink',
-    'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
-    'hair drier', 'toothbrush',
-)
-
-# Build name→ID lookup with common aliases
-COCO_NAME_TO_ID = {name: idx for idx, name in enumerate(COCO_CLASSES)}
-COCO_NAME_TO_ID['airplane'] = COCO_NAME_TO_ID['aeroplane']
-COCO_NAME_TO_ID['sofa'] = COCO_NAME_TO_ID['couch']
-COCO_NAME_TO_ID['motorbike'] = COCO_NAME_TO_ID['motorcycle']
-COCO_NAME_TO_ID['tv monitor'] = COCO_NAME_TO_ID['tv']
-COCO_NAME_TO_ID['television'] = COCO_NAME_TO_ID['tv']
-COCO_NAME_TO_ID['aeroplane'] = COCO_NAME_TO_ID['aeroplane']
-COCO_NAME_TO_ID['potted plant'] = COCO_NAME_TO_ID['potted plant']
-COCO_NAME_TO_ID['pottedplant'] = COCO_NAME_TO_ID['potted plant']
-COCO_NAME_TO_ID['diningtable'] = COCO_NAME_TO_ID['dining table']
-COCO_NAME_TO_ID['cellphone'] = COCO_NAME_TO_ID['cell phone']
-COCO_NAME_TO_ID['cell_phone'] = COCO_NAME_TO_ID['cell phone']
-COCO_NAME_TO_ID['hot_dog'] = COCO_NAME_TO_ID['hot dog']
-COCO_NAME_TO_ID['fire_hydrant'] = COCO_NAME_TO_ID['fire hydrant']
-COCO_NAME_TO_ID['stop_sign'] = COCO_NAME_TO_ID['stop sign']
-COCO_NAME_TO_ID['parking_meter'] = COCO_NAME_TO_ID['parking meter']
-COCO_NAME_TO_ID['baseball_bat'] = COCO_NAME_TO_ID['baseball bat']
-COCO_NAME_TO_ID['baseball_glove'] = COCO_NAME_TO_ID['baseball glove']
-COCO_NAME_TO_ID['tennis_racket'] = COCO_NAME_TO_ID['tennis racket']
-COCO_NAME_TO_ID['wine_glass'] = COCO_NAME_TO_ID['wine glass']
-COCO_NAME_TO_ID['sports_ball'] = COCO_NAME_TO_ID['sports ball']
-COCO_NAME_TO_ID['teddy_bear'] = COCO_NAME_TO_ID['teddy bear']
-COCO_NAME_TO_ID['hair_drier'] = COCO_NAME_TO_ID['hair drier']
-COCO_NAME_TO_ID['traffic_light'] = COCO_NAME_TO_ID['traffic light']
-
-
-def map_to_coco_ids(argmax_local, class_names):
-    """Remap local argmax indices (0..N-1) to fixed COCO class IDs.
-
-    Pixels whose class name is not in COCO_CLASSES are mapped to 255 (ignore).
-    Pixels not assigned to any input class become 0 (background).
-    """
-    h, w = argmax_local.shape
-    coco_mask = np.zeros((h, w), dtype=np.uint8)
-
-    for local_idx, name in enumerate(class_names):
-        name_lower = name.lower().strip()
-        coco_id = COCO_NAME_TO_ID.get(name_lower, None)
-        if coco_id is None:
-            for coco_name, cid in COCO_NAME_TO_ID.items():
-                if coco_name in name_lower or name_lower in coco_name:
-                    coco_id = cid
-                    break
-        if coco_id is None:
-            print(f"  Warning: '{name}' not found in COCO classes, mapping to 255 (ignore)")
-            coco_id = 255
-        coco_mask[argmax_local == local_idx] = coco_id
-
-    return coco_mask
-
-
-# ---------------------------------------------------------------------------
 # Argument parsing
 # ---------------------------------------------------------------------------
 
@@ -519,10 +445,6 @@ def save_visualization(image_pil, masks, class_names, save_dir):
 
     # --- Argmax segmentation mask (original resolution) ---
     argmax_full = masks_up.argmax(axis=0).astype(np.uint8)
-
-    # Raw class-ID mask for RNS (pixel value = fixed COCO class ID)
-    coco_mask = map_to_coco_ids(argmax_full, class_names)
-    Image.fromarray(coco_mask, mode="L").save(save_dir / "argmax_rns.png")
 
     n_unique = len(np.unique(argmax_full))
     if n_unique > 1:
